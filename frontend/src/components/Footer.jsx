@@ -50,31 +50,7 @@ function Footer({ onNavigate }) {
             </ul>
           </div>
 
-          <div className="footer-col">
-            <h4 className="footer-col-title">Company</h4>
-            <ul className="footer-menu">
-              <li>
-                <a href="#about" onClick={(e) => handleLink(e, 'About')}>
-                  About Us
-                </a>
-              </li>
-              <li>
-                <a href="#contact" onClick={(e) => handleLink(e, 'Contact')}>
-                  Contact Us
-                </a>
-              </li>
-              <li>
-                <a href="#help" onClick={(e) => handleLink(e, 'Help')}>
-                  Help & FAQs
-                </a>
-              </li>
-              <li>
-                <a href="#privacy" onClick={(e) => handleLink(e, 'Privacy Policy')}>
-                  Privacy Policy
-                </a>
-              </li>
-            </ul>
-          </div>
+          
 
           <div className="footer-col">
             <h4 className="footer-col-title">Customer Services</h4>
