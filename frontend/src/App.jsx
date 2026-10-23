@@ -8,26 +8,92 @@ import CartDrawer from './components/CartDrawer';
 import CheckoutModal from './components/CheckoutModal';
 import AuthModal from './components/AuthModal';
 import Footer from './components/Footer';
-import { PRODUCTS } from './data/mockData';
 import './App.css';
 
 function App() {
   // Navigation active section state
   const [activeSection, setActiveSection] = useState('home');
 
+  // Products state fetched from MongoDB
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   // Products filtering state
   const [selectedCategory, setSelectedCategory] = useState('All');
   
-  // Cart state: array of items with quantity
-  const [cart, setCart] = useState([
-    {
-      ...PRODUCTS[0],
-      quantity: 1
+  // Cart state: initialized from localStorage or empty array
+  const [cart, setCart] = useState(() => {
+    try {
+      const saved = localStorage.getItem('shopease_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-  ]);
+  });
+
+  // Save cart changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('shopease_cart', JSON.stringify(cart));
+    } catch (e) {
+      console.error('Failed to sync cart with localStorage:', e);
+    }
+  }, [cart]);
 
   // User authentication state
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('shopease_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Verify stored token with backend on initial load
+  useEffect(() => {
+    const token = localStorage.getItem('shopease_token');
+    if (token) {
+      fetch('/api/auth/me', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Token expired or invalid');
+          return res.json();
+        })
+        .then((data) => {
+          if (data?.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem('shopease_user', JSON.stringify(data.user));
+          }
+        })
+        .catch(() => {
+          localStorage.removeItem('shopease_token');
+          localStorage.removeItem('shopease_user');
+          setCurrentUser(null);
+        });
+    }
+  }, []);
+
+  const handleAuthSuccess = (userData, token) => {
+    if (token) {
+      localStorage.setItem('shopease_token', token);
+    }
+    if (userData) {
+      localStorage.setItem('shopease_user', JSON.stringify(userData));
+    }
+    setCurrentUser(userData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('shopease_token');
+    localStorage.removeItem('shopease_user');
+    setCurrentUser(null);
+    setAuthModalOpen(false);
+  };
 
   // Modal & Drawer visibility states
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -50,39 +116,177 @@ function App() {
       });
   }, []);
 
-  // Total cart item count
-  const totalCartCount = cart.reduce((total, item) => total + item.quantity, 0);
-
-  // Add product to cart
-  const handleAddToCart = (product, qty = 1) => {
-    setCart((prevCart) => {
-      const existingIndex = prevCart.findIndex((item) => item.id === product.id);
-      if (existingIndex > -1) {
-        const newCart = [...prevCart];
-        newCart[existingIndex].quantity += qty;
-        return newCart;
-      } else {
-        return [...prevCart, { ...product, quantity: qty }];
+  // Fetch products from Express backend / MongoDB
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/products');
+      if (!res.ok) {
+        throw new Error(`Failed to fetch products (HTTP ${res.status})`);
       }
-    });
+      const data = await res.json();
+      setProducts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('Error fetching products from backend:', err);
+      setError('Unable to load products. Please ensure the backend server and MongoDB are running.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Update quantity in cart
-  const handleUpdateQuantity = (productId, newQty) => {
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  // Fetch cart from backend for logged in user
+  const fetchCartFromBackend = async (token) => {
+    const authToken = token || localStorage.getItem('shopease_token');
+    if (!authToken) return;
+
+    try {
+      const res = await fetch('/api/cart', {
+        headers: {
+          Authorization: `Bearer ${authToken}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.items)) {
+          setCart(data.items);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch user cart from backend:', err);
+    }
+  };
+
+  // Sync cart whenever currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchCartFromBackend();
+    } else {
+      try {
+        const saved = localStorage.getItem('shopease_cart');
+        if (saved) setCart(JSON.parse(saved));
+        else setCart([]);
+      } catch {
+        setCart([]);
+      }
+    }
+  }, [currentUser]);
+
+  // Total cart item count
+  const totalCartCount = cart.reduce((total, item) => total + (item.quantity || 0), 0);
+
+  // Add product to cart (connected to backend when logged in)
+  const handleAddToCart = async (product, qty = 1) => {
+    const pId = product.id || product._id;
+    const token = localStorage.getItem('shopease_token');
+
+    // If logged in, save to MongoDB cart
+    if (currentUser && token) {
+      try {
+        const res = await fetch('/api/cart', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            productId: pId,
+            quantity: qty
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.message || 'Could not add product to cart');
+          return;
+        }
+
+        if (Array.isArray(data.items)) {
+          setCart(data.items);
+        }
+      } catch (err) {
+        console.error('Error adding to cart API:', err);
+      }
+    } else {
+      // Prompt user to sign in because carts belong to registered users
+      setAuthMode('login');
+      setAuthModalOpen(true);
+    }
+  };
+
+  // Update quantity in cart (connected to backend when logged in)
+  const handleUpdateQuantity = async (productId, newQty) => {
+    const token = localStorage.getItem('shopease_token');
+
     if (newQty <= 0) {
-      handleRemoveFromCart(productId);
+      await handleRemoveFromCart(productId);
       return;
     }
-    setCart((prevCart) =>
-      prevCart.map((item) =>
-        item.id === productId ? { ...item, quantity: newQty } : item
-      )
-    );
+
+    if (currentUser && token) {
+      try {
+        const res = await fetch(`/api/cart/${productId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            quantity: newQty
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.message || 'Could not update quantity');
+          return;
+        }
+
+        if (Array.isArray(data.items)) {
+          setCart(data.items);
+        }
+      } catch (err) {
+        console.error('Error updating cart quantity API:', err);
+      }
+    } else {
+      setCart((prevCart) =>
+        prevCart.map((item) =>
+          (item.id || item._id) === productId ? { ...item, quantity: newQty } : item
+        )
+      );
+    }
   };
 
-  // Remove single product from cart
-  const handleRemoveFromCart = (productId) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+  // Remove single product from cart (connected to backend when logged in)
+  const handleRemoveFromCart = async (productId) => {
+    const token = localStorage.getItem('shopease_token');
+
+    if (currentUser && token) {
+      try {
+        const res = await fetch(`/api/cart/${productId}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (res.ok && Array.isArray(data.items)) {
+          setCart(data.items);
+        }
+      } catch (err) {
+        console.error('Error removing from cart API:', err);
+      }
+    } else {
+      setCart((prevCart) => prevCart.filter((item) => (item.id || item._id) !== productId));
+    }
   };
 
   // Smooth navigation handler
@@ -115,21 +319,24 @@ function App() {
   // Filter products by selected category
   const filteredProducts =
     selectedCategory === 'All'
-      ? PRODUCTS
-      : PRODUCTS.filter(
+      ? products
+      : products.filter(
           (p) =>
-            p.category.toLowerCase() === selectedCategory.toLowerCase() ||
+            p.category?.toLowerCase() === selectedCategory.toLowerCase() ||
             p.categoryId?.toLowerCase() === selectedCategory.toLowerCase()
         );
 
-  const categoryFilterList = [
-    'All',
+  // Extract unique category names dynamically from actual MongoDB products
+  const dynamicCategories = Array.from(
+    new Set(products.map((p) => p.category).filter(Boolean))
+  );
+  const categoryFilterList = ['All', ...(dynamicCategories.length > 0 ? dynamicCategories : [
     'Stationery',
     'Electronics & Gadgets',
     'Bags & Backpacks',
     'Hostel Essentials',
     'Fashion & Accessories'
-  ];
+  ])];
 
   return (
     <div className="shopease-app">
@@ -144,6 +351,7 @@ function App() {
         activeSection={activeSection}
         onNavigate={handleNavigate}
         currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       <main>
@@ -157,6 +365,7 @@ function App() {
         <Categories
           onSelectCategory={handleCategorySelect}
           selectedCategory={selectedCategory}
+          products={products}
         />
 
         {/* 4. FEATURED PRODUCTS SECTION */}
@@ -185,28 +394,82 @@ function App() {
               </div>
             </div>
 
-            {/* Products Grid */}
-            <div className="products-grid">
-              {filteredProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAddToCart={handleAddToCart}
-                  onOpenDetail={setActiveProductDetail}
-                />
-              ))}
-            </div>
+            {/* Loading State */}
+            {loading && (
+              <div className="no-products-box" style={{ padding: '3.5rem 1rem' }}>
+                <div
+                  className="loading-spinner"
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    border: '3px solid #e2e8f0',
+                    borderTopColor: '#f97316',
+                    borderRadius: '50%',
+                    margin: '0 auto 1.25rem',
+                    animation: 'spin 0.8s linear infinite'
+                  }}
+                ></div>
+                <p style={{ fontWeight: 700, color: 'var(--dark-navy)', fontSize: '1.05rem' }}>
+                  Loading products...
+                </p>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  Fetching live items from MongoDB database
+                </p>
+              </div>
+            )}
 
-            {filteredProducts.length === 0 && (
-              <div className="no-products-box">
-                <p>No products found in this category.</p>
+            {/* Error State */}
+            {!loading && error && (
+              <div
+                className="no-products-box"
+                style={{
+                  padding: '3rem 1.5rem',
+                  borderColor: '#fca5a5',
+                  backgroundColor: '#fef2f2'
+                }}
+              >
+                <span style={{ fontSize: '2rem' }}>⚠️</span>
+                <p style={{ fontWeight: 700, color: '#dc2626', margin: '0.5rem 0' }}>
+                  Could not load products
+                </p>
+                <p style={{ fontSize: '0.9rem', color: '#7f1d1d', marginBottom: '1.25rem', maxWidth: '480px', margin: '0 auto 1.25rem' }}>
+                  {error}
+                </p>
                 <button
-                  className="btn-secondary-outline"
-                  onClick={() => setSelectedCategory('All')}
+                  className="btn-primary-orange"
+                  onClick={fetchProducts}
                 >
-                  View All Products
+                  Retry Connection
                 </button>
               </div>
+            )}
+
+            {/* Products Grid */}
+            {!loading && !error && (
+              <>
+                <div className="products-grid">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id || product._id}
+                      product={product}
+                      onAddToCart={handleAddToCart}
+                      onOpenDetail={setActiveProductDetail}
+                    />
+                  ))}
+                </div>
+
+                {filteredProducts.length === 0 && (
+                  <div className="no-products-box">
+                    <p>No products found in this category.</p>
+                    <button
+                      className="btn-secondary-outline"
+                      onClick={() => setSelectedCategory('All')}
+                    >
+                      View All Products
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -259,6 +522,11 @@ function App() {
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveFromCart}
         onProceedToCheckout={handleOpenCheckout}
+        currentUser={currentUser}
+        onOpenAuth={(mode) => {
+          setAuthMode(mode || 'login');
+          setAuthModalOpen(true);
+        }}
       />
 
       {/* Checkout Modal (General Delivery Details) */}
@@ -266,6 +534,7 @@ function App() {
         isOpen={checkoutModalOpen}
         onClose={() => setCheckoutModalOpen(false)}
         cartItems={cart}
+        currentUser={currentUser}
         onOrderSuccess={() => {
           setCart([]);
         }}
@@ -276,7 +545,9 @@ function App() {
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         initialMode={authMode}
-        onAuthSuccess={(user) => setCurrentUser(user)}
+        onAuthSuccess={handleAuthSuccess}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
     </div>
   );

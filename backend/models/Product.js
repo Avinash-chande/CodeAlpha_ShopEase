@@ -9,30 +9,58 @@ const productSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: [true, 'Please provide a product description']
+      required: [true, 'Please provide a product description'],
+      trim: true
     },
     price: {
       type: Number,
       required: [true, 'Please provide a product price'],
       default: 0
     },
+    image: {
+      type: String,
+      required: [true, 'Please provide a product image URL']
+    },
     category: {
       type: String,
+      required: [true, 'Please provide a product category'],
       default: 'General'
     },
-    imageUrl: {
-      type: String,
-      default: ''
+    stock: {
+      type: Number,
+      required: [true, 'Please provide product stock quantity'],
+      default: 0
     },
-    countInStock: {
+    originalPrice: {
       type: Number,
       default: 0
+    },
+    rating: {
+      type: Number,
+      default: 4.5
+    },
+    reviewsCount: {
+      type: Number,
+      default: 0
+    },
+    badge: {
+      type: String,
+      default: ''
     }
   },
   {
     timestamps: true
   }
 );
+
+// Map virtual 'id' to '_id' in JSON output
+productSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: (doc, ret) => {
+    ret.id = ret._id;
+  }
+});
 
 const Product = mongoose.model('Product', productSchema);
 

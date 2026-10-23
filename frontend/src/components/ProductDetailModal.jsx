@@ -37,7 +37,7 @@ function ProductDetailModal({ product, onClose, onAddToCart }) {
           {/* Product Image Column */}
           <div className="modal-image-col">
             <img
-              src={product.image}
+              src={product.image || product.imageUrl}
               alt={product.name}
               className="modal-product-img"
               onError={(e) => {
@@ -83,7 +83,11 @@ function ProductDetailModal({ product, onClose, onAddToCart }) {
             <div className="modal-perks">
               <div className="perk-item">
                 <span className="perk-icon">📦</span>
-                <span>In Stock — Fast Delivery Across India</span>
+                <span>
+                  {product.stock !== undefined && product.stock !== null
+                    ? `In Stock (${product.stock} units available) — Fast Delivery Across India`
+                    : 'In Stock — Fast Delivery Across India'}
+                </span>
               </div>
               <div className="perk-item">
                 <span className="perk-icon">🛡️</span>

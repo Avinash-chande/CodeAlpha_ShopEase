@@ -4,7 +4,9 @@ function CartDrawer({
   cartItems,
   onUpdateQuantity,
   onRemoveItem,
-  onProceedToCheckout
+  onProceedToCheckout,
+  currentUser,
+  onOpenAuth
 }) {
   if (!isOpen) return null;
 
@@ -44,6 +46,38 @@ function CartDrawer({
           </button>
         </div>
 
+        {/* Not Logged In Banner */}
+        {!currentUser && (
+          <div
+            style={{
+              padding: '0.65rem 1.25rem',
+              backgroundColor: 'var(--primary-orange-light)',
+              borderBottom: '1px solid var(--primary-orange-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '0.82rem'
+            }}
+          >
+            <span style={{ color: 'var(--navy-light)' }}>
+              Sign in to save your cart to MongoDB
+            </span>
+            <button
+              style={{
+                color: 'var(--primary-orange-hover)',
+                fontWeight: 700,
+                textDecoration: 'underline'
+              }}
+              onClick={() => {
+                onClose();
+                if (onOpenAuth) onOpenAuth('login');
+              }}
+            >
+              Sign In
+            </button>
+          </div>
+        )}
+
         {/* Free Shipping Progress Indicator */}
         <div className="shipping-bar-container">
           {isFreeShipping ? (
@@ -82,7 +116,7 @@ function CartDrawer({
               {cartItems.map((item) => (
                 <div key={item.id} className="cart-item-card">
                   <img
-                    src={item.image}
+                    src={item.image || item.imageUrl}
                     alt={item.name}
                     className="cart-item-image"
                     onError={(e) => {
@@ -108,6 +142,8 @@ function CartDrawer({
                           onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
                           className="qty-btn-sm"
                           aria-label="Increase quantity"
+                          disabled={item.stock !== undefined && item.quantity >= item.stock}
+                          title={item.stock !== undefined && item.quantity >= item.stock ? `Max stock available (${item.stock})` : 'Increase quantity'}
                         >
                           +
                         </button>
@@ -121,6 +157,12 @@ function CartDrawer({
                         Remove
                       </button>
                     </div>
+
+                    {item.stock !== undefined && item.quantity >= item.stock && (
+                      <span style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: 600, display: 'block', marginTop: '0.25rem' }}>
+                        Maximum stock reached ({item.stock})
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
