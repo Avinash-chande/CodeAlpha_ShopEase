@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate }) {
+function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, currentUser, onLogout }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLinkClick = (e, sectionId) => {
@@ -68,23 +68,55 @@ function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate }
             {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
           </button>
 
-          {/* Login Link */}
-          <button
-            className="login-btn"
-            onClick={() => onOpenAuth('login')}
-            id="nav-login-btn"
-          >
-            Login
-          </button>
+          {/* Auth State / Actions */}
+          {currentUser ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+              <button
+                className="login-btn"
+                onClick={() => onOpenAuth('profile')}
+                id="nav-profile-btn"
+                title="View Account Details"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <span>👋</span>
+                <span>{currentUser.name}</span>
+              </button>
+              <button
+                className="register-btn"
+                onClick={onLogout}
+                id="nav-logout-btn"
+                style={{
+                  padding: '0.45rem 0.85rem',
+                  fontSize: '0.85rem',
+                  backgroundColor: '#f1f5f9',
+                  color: 'var(--navy-light)',
+                  borderColor: 'var(--border-light)'
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Login Link */}
+              <button
+                className="login-btn"
+                onClick={() => onOpenAuth('login')}
+                id="nav-login-btn"
+              >
+                Login
+              </button>
 
-          {/* Register Button */}
-          <button
-            className="register-btn"
-            onClick={() => onOpenAuth('register')}
-            id="nav-register-btn"
-          >
-            Register
-          </button>
+              {/* Register Button */}
+              <button
+                className="register-btn"
+                onClick={() => onOpenAuth('register')}
+                id="nav-register-btn"
+              >
+                Register
+              </button>
+            </>
+          )}
 
           {/* Mobile Menu Hamburger */}
           <button
@@ -122,24 +154,49 @@ function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate }
             Categories
           </a>
           <div className="mobile-auth-row">
-            <button
-              className="login-btn"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth('login');
-              }}
-            >
-              Login
-            </button>
-            <button
-              className="register-btn"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                onOpenAuth('register');
-              }}
-            >
-              Register
-            </button>
+            {currentUser ? (
+              <>
+                <button
+                  className="login-btn"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('profile');
+                  }}
+                >
+                  My Account ({currentUser.name})
+                </button>
+                <button
+                  className="register-btn"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onLogout) onLogout();
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  className="login-btn"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('login');
+                  }}
+                >
+                  Login
+                </button>
+                <button
+                  className="register-btn"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth('register');
+                  }}
+                >
+                  Register
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

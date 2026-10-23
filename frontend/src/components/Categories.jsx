@@ -1,6 +1,6 @@
 import { CATEGORIES } from '../data/mockData';
 
-function Categories({ onSelectCategory, selectedCategory }) {
+function Categories({ onSelectCategory, selectedCategory, products = [] }) {
   return (
     <section className="categories-section" id="categories">
       <div className="section-container">
@@ -17,6 +17,15 @@ function Categories({ onSelectCategory, selectedCategory }) {
         <div className="categories-grid">
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat.categoryId || selectedCategory === cat.name;
+
+            // Connect to real product count if products are available
+            const matchingCount = products.filter(
+              (p) =>
+                p.category?.toLowerCase() === cat.name.toLowerCase() ||
+                p.categoryId?.toLowerCase() === cat.id.toLowerCase()
+            ).length;
+
+            const countDisplay = matchingCount > 0 ? `${matchingCount} Items` : cat.count;
 
             return (
               <div
@@ -39,7 +48,7 @@ function Categories({ onSelectCategory, selectedCategory }) {
                     loading="lazy"
                   />
                   <div className="category-overlay"></div>
-                  <span className="category-count-badge">{cat.count}</span>
+                  <span className="category-count-badge">{countDisplay}</span>
                 </div>
 
                 <div className="category-body">

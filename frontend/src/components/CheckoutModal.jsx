@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 function CheckoutModal({
   isOpen,
   onClose,
   cartItems,
-  onOrderSuccess
+  onOrderSuccess,
+  currentUser
 }) {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -17,8 +18,17 @@ function CheckoutModal({
   });
 
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderConfirmed, setOrderConfirmed] = useState(null);
+
+  // Pre-fill user name if available and not already typed
+  useEffect(() => {
+    if (currentUser?.name && !formData.fullName) {
+      setFormData((prev) => ({ ...prev, fullName: currentUser.name }));
+    }
+    setApiError('');
+  }, [currentUser, isOpen]);
 
   if (!isOpen) return null;
 
@@ -44,6 +54,9 @@ function CheckoutModal({
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
     }
+    if (apiError) {
+      setApiError('');
+    }
   };
 
   const validate = () => {
@@ -65,7 +78,7 @@ function CheckoutModal({
     return err;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const err = validate();
     if (Object.keys(err).length > 0) {
@@ -73,27 +86,67 @@ function CheckoutModal({
       return;
     }
 
+    const token = localStorage.getItem('shopease_token');
+    if (!token) {
+      setApiError('Please log in to your account before placing an order.');
+      return;
+    }
+
     setIsSubmitting(true);
-    // Simulate order placement
-    setTimeout(() => {
-      const orderId = 'SE-' + Math.floor(100000 + Math.random() * 900000);
+    setApiError('');
+
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          shippingAddress: {
+            fullName: formData.fullName,
+            phone: formData.phone,
+            address: formData.address,
+            city: formData.city,
+            state: formData.state,
+            pincode: formData.pincode
+          },
+          paymentMethod: formData.paymentMethod === 'ONLINE' ? 'ONLINE' : 'COD'
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Could not place order');
+      }
+
       const orderSummary = {
-        orderId,
-        itemsCount: cartItems.reduce((acc, curr) => acc + curr.quantity, 0),
-        totalAmount,
+        orderId: data.order?.orderId || `SE-${data.order?._id?.slice(-6).toUpperCase()}`,
+        itemsCount:
+          data.order?.items?.reduce((acc, curr) => acc + curr.quantity, 0) ||
+          cartItems.reduce((acc, curr) => acc + curr.quantity, 0),
+        totalAmount: data.order?.totalAmount || totalAmount,
         deliveryDetails: { ...formData },
-        date: new Date().toLocaleDateString('en-IN', {
+        status: data.order?.status || 'Processing',
+        date: new Date(data.order?.createdAt || Date.now()).toLocaleDateString('en-IN', {
           day: 'numeric',
           month: 'short',
           year: 'numeric'
         })
       };
+
       setIsSubmitting(false);
       setOrderConfirmed(orderSummary);
+
       if (onOrderSuccess) {
         onOrderSuccess();
       }
-    }, 1000);
+    } catch (apiErr) {
+      console.error('Order placement error:', apiErr);
+      setIsSubmitting(false);
+      setApiError(apiErr.message || 'Failed to place order. Please try again.');
+    }
   };
 
   const handleFinish = () => {
@@ -108,6 +161,7 @@ function CheckoutModal({
       paymentMethod: 'COD'
     });
     setErrors({});
+    setApiError('');
     onClose();
   };
 
@@ -341,11 +395,29 @@ function CheckoutModal({
                     </div>
                   </div>
 
+                  {apiError && (
+                    <div
+                      style={{
+                        color: '#ef4444',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        padding: '0.75rem',
+                        borderRadius: '8px',
+                        fontSize: '0.875rem',
+                        marginTop: '1rem',
+                        textAlign: 'center',
+                        fontWeight: '500'
+                      }}
+                    >
+                      {apiError}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     className="btn-primary-orange btn-block"
                     disabled={isSubmitting || cartItems.length === 0}
-                    style={{ marginTop: '1.5rem', padding: '1rem' }}
+                    style={{ marginTop: '1.25rem', padding: '1rem' }}
                   >
                     {isSubmitting ? 'Placing Order...' : `Place Order • ${formatINR(totalAmount)}`}
                   </button>

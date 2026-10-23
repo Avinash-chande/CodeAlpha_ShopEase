@@ -34,7 +34,7 @@ function ProductCard({ product, onAddToCart, onOpenDetail }) {
       {/* Product Image & Badges */}
       <div className="product-image-container">
         <img
-          src={product.image}
+          src={product.image || product.imageUrl}
           alt={product.name}
           className="product-image"
           loading="lazy"

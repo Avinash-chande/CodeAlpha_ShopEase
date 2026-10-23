@@ -3,6 +3,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { connectDB } from './config/db.js';
 import healthRoutes from './routes/healthRoutes.js';
+import productRoutes from './routes/productRoutes.js';
+import authRoutes from './routes/authRoutes.js';
+import cartRoutes from './routes/cartRoutes.js';
+import orderRoutes from './routes/orderRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -25,9 +29,21 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api', healthRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 ShopEase server running on http://localhost:${PORT}`);
-  console.log(`🩺 Health check available at: http://localhost:${PORT}/api/health`);
+  console.log(`ShopEase server running on http://localhost:${PORT}`);
 });
+
+
+
+
+
+
+
+
+
