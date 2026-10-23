@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, currentUser, onLogout }) {
+function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, currentUser, onLogout, onOpenOrders }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLinkClick = (e, sectionId) => {
@@ -52,6 +52,21 @@ function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, 
               Categories
             </a>
           </li>
+          {currentUser && (
+            <li>
+              <a
+                href="#orders"
+                className={`nav-link ${activeSection === 'orders' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onOpenOrders) onOpenOrders();
+                }}
+                id="nav-my-orders-link"
+              >
+                My Orders
+              </a>
+            </li>
+          )}
         </ul>
 
         {/* Right Action Buttons */}
@@ -153,6 +168,20 @@ function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, 
           >
             Categories
           </a>
+          {currentUser && (
+            <a
+              href="#orders"
+              className="mobile-link"
+              onClick={(e) => {
+                e.preventDefault();
+                setMobileMenuOpen(false);
+                if (onOpenOrders) onOpenOrders();
+              }}
+              id="mobile-my-orders-link"
+            >
+              📦 My Orders
+            </a>
+          )}
           <div className="mobile-auth-row">
             {currentUser ? (
               <>
@@ -205,3 +234,4 @@ function Navbar({ cartCount, onOpenCart, onOpenAuth, activeSection, onNavigate, 
 }
 
 export default Navbar;
+
