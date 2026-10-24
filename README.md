@@ -99,7 +99,7 @@ Open your browser and navigate to:
 - [x] Express health check route (`GET /api/health`)
 - [x] MongoDB database connection configuration
 - [x] Basic folder structure: `routes/`, `controllers/`, `models/`
-- [ ] Product catalog and listing
-- [ ] Shopping cart functionality
-- [ ] User authentication and login
-- [ ] Order placement and checkout
+- [x] Product catalog and listing
+- [x] Shopping cart functionality
+- [x] User authentication and login
+- [x] Order placement and checkout
